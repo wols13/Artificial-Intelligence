@@ -83,7 +83,18 @@ def anytime_gbfs(initial_state, heur_fn, timebound = 10):
     '''Provides an implementation of anytime greedy best-first search, as described in the HW1 handout'''
     '''INPUT: a sokoban state that represents the start state and a timebound (number of seconds)'''
     '''OUTPUT: A goal state (if a goal is found), else False'''
-    return False
+
+    start_time = os.times()[0]
+    new_se = SearchEngine('best_first')
+    new_se.init_search(initial_state, sokoban_goal_state, heur_manhattan_distance)
+    result = new_se.search(timebound)
+
+    temp = result
+    while temp:
+        result = temp
+        temp = new_se.search(timebound - (os.times()[0] - start_time), (temp.gval, math.inf, math.inf))
+
+    return result
 
 def anytime_weighted_astar(initial_state, heur_fn, weight=1., timebound = 10):
 #IMPLEMENT
@@ -128,7 +139,7 @@ if __name__ == "__main__":
   print("Running Anytime Weighted A-star")
 
   for i in range(0, 10):
-    print("*************************************")  
+    print("*************************************")
     print("PROBLEM {}".format(i))
 
     s0 = PROBLEMS[i] #Problems get harder as i gets bigger
@@ -136,19 +147,19 @@ if __name__ == "__main__":
     final = anytime_weighted_astar(s0, heur_fn=heur_displaced, weight=weight, timebound=timebound)
 
     if final:
-      final.print_path()   
-      solved += 1 
+      final.print_path()
+      solved += 1
     else:
       unsolved.append(i)
-    counter += 1      
+    counter += 1
 
-  if counter > 0:  
-    percent = (solved/counter)*100   
-      
-  print("*************************************")  
-  print("{} of {} problems ({} %) solved in less than {} seconds.".format(solved, counter, percent, timebound))  
-  print("Problems that remain unsolved in the set are Problems: {}".format(unsolved))      
-  print("*************************************") 
+  if counter > 0:
+    percent = (solved/counter)*100
+
+  print("*************************************")
+  print("{} of {} problems ({} %) solved in less than {} seconds.".format(solved, counter, percent, timebound))
+  print("Problems that remain unsolved in the set are Problems: {}".format(unsolved))
+  print("*************************************")
 
 
 
