@@ -76,7 +76,7 @@ def fval_function(sN, weight):
     #The function must return a numeric f-value.
     #The value will determine your state's position on the Frontier list during a 'custom' search.
     #You must initialize your search engine object as a 'custom' search engine if you supply a custom fval function.
-    return 0
+    return sN.gval + (weight * sN.hval)
 
 def anytime_gbfs(initial_state, heur_fn, timebound = 10):
 #IMPLEMENT
@@ -86,13 +86,15 @@ def anytime_gbfs(initial_state, heur_fn, timebound = 10):
 
     start_time = os.times()[0]
     new_se = SearchEngine('best_first')
-    new_se.init_search(initial_state, sokoban_goal_state, heur_manhattan_distance)
+    new_se.init_search(initial_state, sokoban_goal_state, heur_fn)
     result = new_se.search(timebound)
 
+    #After initial iteration, search for more optimal solution
     temp = result
-    while temp:
-        result = temp
-        temp = new_se.search(timebound - (os.times()[0] - start_time), (temp.gval, math.inf, math.inf))
+    while temp and ((timebound - (os.times()[0] - start_time)) > 0):
+        temp = new_se.search(timebound - (os.times()[0] - start_time), (temp.gval - 1, math.inf, math.inf))
+        if temp:
+            result = temp
 
     return result
 
@@ -101,7 +103,21 @@ def anytime_weighted_astar(initial_state, heur_fn, weight=1., timebound = 10):
     '''Provides an implementation of anytime weighted a-star, as described in the HW1 handout'''
     '''INPUT: a sokoban state that represents the start state and a timebound (number of seconds)'''
     '''OUTPUT: A goal state (if a goal is found), else False'''
-    return False
+
+    start_time = os.times()[0]
+    new_se = SearchEngine('custom')
+    wrapped_fval_function = (lambda sN: fval_function(sN, weight))
+    new_se.init_search(initial_state, sokoban_goal_state, heur_fn, wrapped_fval_function)
+    result = new_se.search(timebound)
+
+    # After initial iteration, search for more optimal solution
+    temp = result
+    while temp and ((timebound - (os.times()[0] - start_time)) > 0):
+        temp = new_se.search(timebound - (os.times()[0] - start_time), (math.inf, math.inf, temp.gval + heur_fn(temp)))
+        if temp:
+            result = temp
+
+    return result
 
 if __name__ == "__main__":
   #TEST CODE
