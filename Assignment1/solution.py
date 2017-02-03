@@ -12,6 +12,12 @@ from search import * #for search engines
 from sokoban import SokobanState, Direction, PROBLEMS, sokoban_goal_state #for Sokoban specific classes and problems
 import math
 
+#Global Directions
+UP = Direction("up", (0, -1))
+RIGHT = Direction("right", (1, 0))
+DOWN = Direction("down", (0, 1))
+LEFT = Direction("left", (-1, 0))
+
 #SOKOBAN HEURISTICS
 def heur_displaced(state):
   '''trivial admissible sokoban heuristic'''
@@ -57,7 +63,63 @@ def heur_alternate(state):
     #heur_manhattan_distance has flaws.
     #Write a heuristic function that improves upon heur_manhattan_distance to estimate distance between the current state and the goal.
     #Your function should return a numeric value for the estimate of the distance to the goal.
-    return 0
+
+    ################OBSERVE OBSTRUCTIONS
+    ################DONE THAT MULTIPLE BOX CANT BE IN ONE STORAGE
+    #OBSERVE Deadends
+    #WORSE RESULTS ROBOT-BOX DISTANCE
+
+    sum_manhattan_distance = 0
+    total_obstacles_encountered = 0
+    total_distance_from_robot = 0
+    valid_storage = state.storage
+    used_storage = []
+
+    for box in state.boxes:
+        total_distance_from_robot += (abs(state.robot[0] - box[0]) + abs(state.robot[1] - box[1]))
+        x_diff = 0
+        y_diff = 0
+        min_manhattan_distance = math.inf
+        closest_storage = None
+        if state.restrictions is not None:
+            valid_storage = state.restrictions[state.boxes[box]]
+        valid_storage = list(set(valid_storage) - set(used_storage))
+        for storage in valid_storage:
+            x_diff = storage[0] - box[0]
+            y_diff = storage[1] - box[1]
+            manhattan_distance = abs(x_diff) + abs(y_diff)
+            if manhattan_distance < min_manhattan_distance:
+                min_manhattan_distance = manhattan_distance
+                closest_storage = storage
+        if closest_storage:
+            used_storage.append(closest_storage)
+            #total_obstacles_encountered += obstacles_encountered(box, state.obstacles, x_diff, y_diff)
+        sum_manhattan_distance += min_manhattan_distance
+
+    return sum_manhattan_distance + total_distance_from_robot  #  (2 * total_obstacles_encountered)
+
+
+def obstacles_encountered(box, obstacles, x_diff, y_diff):
+    total_obstacles = 0
+    new_box_location = box
+
+    for i in range(abs(x_diff)):
+        if x_diff > 0:
+            new_box_location = RIGHT.move(new_box_location)
+        else:
+            new_box_location = LEFT.move(new_box_location)
+        if new_box_location in obstacles:
+            total_obstacles += 1
+
+    for j in range(abs(y_diff)):
+        if y_diff > 0:
+            new_box_location = DOWN.move(new_box_location)
+        else:
+            new_box_location = UP.move(new_box_location)
+        if new_box_location in obstacles:
+            total_obstacles += 1
+    return total_obstacles
+
 
 def fval_function(sN, weight):
 #IMPLEMENT
@@ -78,6 +140,7 @@ def fval_function(sN, weight):
     #You must initialize your search engine object as a 'custom' search engine if you supply a custom fval function.
     return sN.gval + (weight * sN.hval)
 
+
 def anytime_gbfs(initial_state, heur_fn, timebound = 10):
 #IMPLEMENT
     '''Provides an implementation of anytime greedy best-first search, as described in the HW1 handout'''
@@ -85,7 +148,7 @@ def anytime_gbfs(initial_state, heur_fn, timebound = 10):
     '''OUTPUT: A goal state (if a goal is found), else False'''
 
     start_time = os.times()[0]
-    new_se = SearchEngine('best_first')
+    new_se = SearchEngine('best_first', 'full')
     new_se.init_search(initial_state, sokoban_goal_state, heur_fn)
     result = new_se.search(timebound)
 
@@ -97,6 +160,7 @@ def anytime_gbfs(initial_state, heur_fn, timebound = 10):
             result = temp
 
     return result
+
 
 def anytime_weighted_astar(initial_state, heur_fn, weight=1., timebound = 10):
 #IMPLEMENT
@@ -113,7 +177,7 @@ def anytime_weighted_astar(initial_state, heur_fn, weight=1., timebound = 10):
     # After initial iteration, search for more optimal solution
     temp = result
     while temp and ((timebound - (os.times()[0] - start_time)) > 0):
-        temp = new_se.search(timebound - (os.times()[0] - start_time), (math.inf, math.inf, temp.gval + heur_fn(temp)))
+        temp = new_se.search(timebound - (os.times()[0] - start_time), (math.inf, math.inf, temp.gval + heur_fn(temp) - 1))
         if temp:
             result = temp
 
@@ -177,5 +241,37 @@ if __name__ == "__main__":
   print("Problems that remain unsolved in the set are Problems: {}".format(unsolved))
   print("*************************************")
 
+# if min_manhattan_distance:
+#     deadends = 0
+#     for direction in (UP, RIGHT, DOWN, LEFT):
+#         box_neighbour = direction.move(box)
+#         if box_neighbour[0] < 0 or box_neighbour[0] >= state.width:
+#             deadends += 1
+#         if box_neighbour[1] < 0 or box_neighbour[1] >= state.height:
+#             deadends += 1
+#         if box_neighbour in state.obstacles: #other robots
+#             deadends += 1
+#     if deadends > 1:
+#         return math.inf
 
 
+# sum_manhattan_distance = 0
+# valid_storage = state.storage
+# used_storage = []
+#
+# for box in state.boxes:
+#     min_manhattan_distance = math.inf
+#     closest_storage = None
+#     if state.restrictions is not None:
+#         valid_storage = state.restrictions[state.boxes[box]]
+#     valid_storage = list(set(valid_storage) - set(used_storage))
+#     for storage in valid_storage:
+#         manhattan_distance = abs(box[0] - storage[0]) + abs(box[1] - storage[1])
+#         if manhattan_distance < min_manhattan_distance:
+#             min_manhattan_distance = manhattan_distance
+#             closest_storage = storage
+#     if closest_storage:
+#         used_storage.append(closest_storage)
+#     sum_manhattan_distance += min_manhattan_distance
+#
+# return sum_manhattan_distance
