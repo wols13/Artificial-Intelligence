@@ -11,12 +11,18 @@ import os
 from search import * #for search engines
 from sokoban import SokobanState, Direction, PROBLEMS, sokoban_goal_state #for Sokoban specific classes and problems
 import math
+from scipy.sparse.csgraph import shortest_path
+from scipy.optimize import linear_sum_assignment
+import numpy as np
 
 #Global Directions
 UP = Direction("up", (0, -1))
 RIGHT = Direction("right", (1, 0))
 DOWN = Direction("down", (0, 1))
 LEFT = Direction("left", (-1, 0))
+
+distance_matrix = None
+previous_hvals = {}
 
 #SOKOBAN HEURISTICS
 def heur_displaced(state):
@@ -64,39 +70,68 @@ def heur_alternate(state):
     #Write a heuristic function that improves upon heur_manhattan_distance to estimate distance between the current state and the goal.
     #Your function should return a numeric value for the estimate of the distance to the goal.
 
-    ################OBSERVE OBSTRUCTIONS
-    ################DONE THAT MULTIPLE BOX CANT BE IN ONE STORAGE
-    #OBSERVE Deadends
-    #WORSE RESULTS ROBOT-BOX DISTANCE
+    global distance_matrix
+    global previous_hvals
+    all_box_storage_distances = []
 
-    sum_manhattan_distance = 0
-    total_obstacles_encountered = 0
-    total_distance_from_robot = 0
-    valid_storage = state.storage
-    used_storage = []
+    if state.index == 1:
+        distance_matrix = all_pairs_distance(state)
+
+    if state.parent and state.boxes == state.parent.boxes:
+        previous_hvals[state.index] = previous_hvals[state.parent.index]
+        return previous_hvals[state.index]
 
     for box in state.boxes:
-        total_distance_from_robot += (abs(state.robot[0] - box[0]) + abs(state.robot[1] - box[1]))
-        x_diff = 0
-        y_diff = 0
-        min_manhattan_distance = math.inf
-        closest_storage = None
-        if state.restrictions is not None:
-            valid_storage = state.restrictions[state.boxes[box]]
-        valid_storage = list(set(valid_storage) - set(used_storage))
-        for storage in valid_storage:
-            x_diff = storage[0] - box[0]
-            y_diff = storage[1] - box[1]
-            manhattan_distance = abs(x_diff) + abs(y_diff)
-            if manhattan_distance < min_manhattan_distance:
-                min_manhattan_distance = manhattan_distance
-                closest_storage = storage
-        if closest_storage:
-            used_storage.append(closest_storage)
-            #total_obstacles_encountered += obstacles_encountered(box, state.obstacles, x_diff, y_diff)
-        sum_manhattan_distance += min_manhattan_distance
+        distance_to_all_storages = []
+        for store in state.storage:
+            if state.restrictions and (store not in state.restrictions[state.boxes[box]]):
+                distance_to_all_storages.append(10000)
+            else:
+                row = (box[0] * state.height) + box[1]
+                col = (store[0] * state.height) + store[1]
+                distance_to_all_storages.append(distance_matrix[row][col])
+        all_box_storage_distances.append(distance_to_all_storages)
 
-    return sum_manhattan_distance + total_distance_from_robot  #  (2 * total_obstacles_encountered)
+    all_box_storage_distances = np.array(all_box_storage_distances)
+    row_ind, col_ind = linear_sum_assignment(all_box_storage_distances)
+    previous_hvals[state.index] = all_box_storage_distances[row_ind, col_ind].sum()
+
+    return previous_hvals[state.index]
+
+
+def all_pairs_distance(state):
+    no_of_cells = state.width * state.height
+    input_matrix = []
+
+    for _ in range(no_of_cells):
+        zero_row = [0] * no_of_cells
+        input_matrix.append(zero_row)
+
+    for x in range(state.width):
+        for y in range(state.height):
+            for direction in (UP, RIGHT, DOWN, LEFT):
+                neighbour = direction.move((x, y))
+                if out_of_bounds(state, neighbour):
+                    continue
+                row = (x * state.height) + y
+                column = (neighbour[0] * state.height) + neighbour[1]
+                if neighbour in state.obstacles:
+                    input_matrix[row][column] = 10000
+                else:
+                    input_matrix[row][column] = 1
+
+    input_matrix = np.array(input_matrix)
+    return shortest_path(input_matrix, method='auto', directed=True,
+                         return_predecessors=False, unweighted=False, overwrite=False)
+
+
+def out_of_bounds(state, cell):
+    if cell[0] < 0 or cell[0] >= state.width:
+        return True
+    if cell[1] < 0 or cell[1] >= state.height:
+        return  True
+
+    return False
 
 
 def obstacles_encountered(box, obstacles, x_diff, y_diff):
