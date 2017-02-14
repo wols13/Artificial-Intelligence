@@ -1,9 +1,14 @@
-1.
+1. Manhattan distance heuristic ignores the obstacles between any 2 cells in the grid, it is important to design a heuristic that observes obstacles.
+   For each cell its direct neighbour has a distance of 1, if the neighbour is an obstacle then the distance is infinity, create a distance matrix based on this, then compute all pairs shortest path.
 
-2.
+2. In some cases one storage could be valid for multiple boxes, but in the end, only one box can be assigned to that storage.
+   In cases like this, use the hungarian algorithm to determine the optimal assignment.
 
-3.
+3. Be sure to observe deadlock, this helps to limit the search space and prune deadends early.
+   A box next to one or more walls is in a deadend except its storage is also along that wall, a box that has 2 or more neighbouring obstacles is also in a deadend except its storage is at that location.
+ 
+4. Ideas from dynamic programming can also help speed up your heuristic, when applicable using the hval from a parent state can save computing time.
+   Every state except the initial state has a parent, if the location of all the boxes in the parent state remain unchanged in the child state, then the sum of box-storage shortest distance will also be the same, no need to recompute this.
 
-4.
-
-5.
+5. Some computations only need to be done once per puzzle, for example the computation of all pairs shortest distance only needs to the done once, the resulting matrix can be stored as a global. 
+   As much as possible, minimize re-computing previously computed values.

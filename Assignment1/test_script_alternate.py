@@ -1,6 +1,7 @@
 
 # import student's functions
 from solution import *
+from test_problems import PROBLEMS
 
 #Select what to test
 print_problems = True
