@@ -76,14 +76,46 @@ def prop_BT(csp, newVar=None):
                 return False, []
     return True, []
 
+
 def prop_FC(csp, newVar=None):
-    '''Do forward checking. That is check constraints with 
-       only one uninstantiated variable. Remember to keep 
-       track of all pruned variable,value pairs and return '''
-#IMPLEMENT
+    """Do forward checking. That is check constraints with
+       only one un-instantiated variable. Remember to keep
+       track of all pruned variable,value pairs and return """
+
+    pruned_values = []
+    constraints = csp.get_cons_with_var(newVar) if newVar else csp.get_all_cons()
+
+    for c in constraints:
+        if c.get_n_unasgn() == 1:
+            # Generate list of previous assignments to variables in c
+            unassigned_var_index = 0
+            values = []
+            variables = c.get_scope()
+
+            for i, var in enumerate(variables):
+                if not var.is_assigned():
+                    unassigned_var_index = i
+                    continue
+                values.append(var.get_assigned_value())
+
+            # Prune domain of unassigned variable appropriately
+            unassigned_variable = c.get_unasgn_vars()[0]
+            for d in unassigned_variable.cur_domain():
+                full_values = list(values)
+                full_values.insert(unassigned_var_index, d)
+                if not c.check(full_values):
+                    unassigned_variable.prune_value(d)
+                    pruned_values.append((unassigned_variable, d))
+
+            # Check for dead-end (DWO)
+            if unassigned_variable.cur_domain_size() == 0:
+                return False, pruned_values
+
+    return True, pruned_values
 
 def prop_GAC(csp, newVar=None):
     '''Do GAC propagation. If newVar is None we do initial GAC enforce 
        processing all constraints. Otherwise we do GAC enforce with
        constraints containing newVar on GAC Queue'''
-#IMPLEMENT
+    #IMPLEMENT
+    return True, []
