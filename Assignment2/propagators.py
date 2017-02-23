@@ -90,9 +90,8 @@ def prop_FC(csp, newVar=None):
             # Generate list of previous assignments to variables in c
             unassigned_var_index = 0
             values = []
-            variables = c.get_scope()
 
-            for i, var in enumerate(variables):
+            for i, var in enumerate(c.get_scope()):
                 if not var.is_assigned():
                     unassigned_var_index = i
                     continue
@@ -113,9 +112,37 @@ def prop_FC(csp, newVar=None):
 
     return True, pruned_values
 
+
 def prop_GAC(csp, newVar=None):
-    '''Do GAC propagation. If newVar is None we do initial GAC enforce 
+    """Do GAC propagation. If newVar is None we do initial GAC enforce
        processing all constraints. Otherwise we do GAC enforce with
-       constraints containing newVar on GAC Queue'''
-    #IMPLEMENT
-    return True, []
+       constraints containing newVar on GAC Queue"""
+
+    pruned_values = []
+
+    # Populate GAC Queue
+    GACQueue = []
+    constraints = csp.get_cons_with_var(newVar) if newVar else csp.get_all_cons()
+    for c in constraints:
+        GACQueue.append(c)
+
+    # Main GAC enforce loop
+    while len(GACQueue) != 0:
+        constraint = GACQueue.pop()
+        for variable in constraint.get_scope():
+            for value in variable.cur_domain():
+                # Prune value if there is no assignment that gives constraint support
+                if not constraint.has_support(variable, value):
+                    variable.prune_value(value)
+                    pruned_values.append((variable, value))
+                    # Handle domain wipe out (DWO)
+                    if variable.cur_domain_size() == 0:
+                        return False, pruned_values
+                    else:
+                        # Last pruned value could lead to inconsistency
+                        # Add potentially affected constraints to the GAC queue
+                        for affected in csp.get_all_cons():
+                            if (affected != constraint) and (affected not in GACQueue) and \
+                                    (variable in affected.get_scope()):
+                                GACQueue.append(affected)
+    return True, pruned_values
