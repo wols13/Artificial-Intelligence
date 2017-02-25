@@ -1,15 +1,122 @@
-#Look for #IMPLEMENT tags in this file. These tags indicate what has
-#to be implemented to complete the warehouse domain.  
+# Look for #IMPLEMENT tags in this file. These tags indicate what has
+# to be implemented to complete the warehouse domain.
 
-'''
+"""
 Construct and return Tenner Grid CSP models.
-'''
+"""
 
 from cspbase import *
 import itertools
 
+
+def add_not_equal_constraint(tenner_csp, variables, cord1, cord2):
+    if cord1[0] < 0 or cord2[0] < 0 or cord1[0] > 9 or cord2[0] > 9:
+        return
+    if cord1[1] < 0 or cord2[1] < 0 or cord1[1] >= len(variables) or cord2[1] >= len(variables):
+        return
+
+    name = "RowConstraint({},{})({}, {})".format(cord1[0], cord1[1], cord2[0], cord2[1])
+    scope = [variables[cord1[1]][cord1[0]], variables[cord2[1]][cord2[0]]]
+    row_constraint = Constraint(name, scope)
+
+    pair_domain = list(range(10)), list(range(10))
+    satisfying_tuples = [(x, y) for x, y in itertools.product(*pair_domain) if x != y]
+    row_constraint.add_satisfying_tuples(satisfying_tuples)
+    tenner_csp.add_constraint(row_constraint)
+    return
+
+
+def add_col_sum_constraints(tenner_csp, variables, last_row):
+    col_domain = (list(range(10)),) * len(variables)
+    for col in range(10):
+        name = "ColSumConstraint({})".format(col)
+        scope = []
+        for row in range(len(variables)):
+            scope.append(variables[row][col])
+        col_sum_constraint = Constraint(name, scope)
+
+        satisfying_tuples = [i for i in itertools.product(*col_domain) if sum(i) == last_row[col]]
+        col_sum_constraint.add_satisfying_tuples(satisfying_tuples)
+        tenner_csp.add_constraint(col_sum_constraint)
+    return
+
+
+def generate_cell_variables(tenner_csp, variables, n_grid):
+    for y in range(len(n_grid)):
+        variable_row = []
+        for x in range(10):
+            domain = list(range(10)) if n_grid[y][x] == -1 else [n_grid[y][x]]
+            new_variable = Variable("Cell({}, {})".format(x, y), domain)
+            tenner_csp.add_var(new_variable)
+            variable_row.append(new_variable)
+        variables.append(variable_row)
+    return
+
+
+def generate_supporting_tuples(satisfying_tuples, row_domain, current_tuple):
+    if len(current_tuple) == 9:
+        for val in row_domain[9]:
+            if val not in current_tuple:
+                new_current_tuple = current_tuple
+                new_current_tuple += (val,)
+                satisfying_tuples.append(new_current_tuple)
+        return
+
+    for val in row_domain[len(current_tuple)]:
+        if val not in current_tuple:
+            new_current_tuple = current_tuple
+            new_current_tuple += (val,)
+            generate_supporting_tuples(satisfying_tuples, row_domain, new_current_tuple)
+    return
+
+
+def generate_row_product(variables, row):
+    row_product = []
+    for var in variables[row]:
+        row_product.append(var.domain())
+
+    for i in range(10):
+        if len(row_product[i]) == 1:
+            for j in range(10):
+                if j != i and len(row_product[j]) != 1:
+                    index = row_product[j].index(row_product[i][0])
+                    row_product[j].pop(index)
+    return row_product
+
+
+def add_model2_row_constraints(tenner_csp, variables, row):
+    satisfying_tuples = []
+    generate_supporting_tuples(satisfying_tuples, generate_row_product(variables, row), ())
+
+    name = "RowConstraint({})".format(row)
+    scope = []
+    for cell in range(10):
+        scope.append(variables[row][cell])
+    row_constraint = Constraint(name, scope)
+    row_constraint.add_satisfying_tuples(satisfying_tuples)
+    tenner_csp.add_constraint(row_constraint)
+    return
+
+
+def add_row_adjacency_constraints(tenner_csp, variables, mode):
+    for y in range(len(variables)):
+        if mode == "model_2":
+            # Add n-ary all different constraints for each row
+            add_model2_row_constraints(tenner_csp, variables, y)
+        for x in range(10):
+            if mode == "model_1":
+                # Add not equal constraints to row neighbours to the right
+                for row_neighbour in range(x + 1, 10):
+                    add_not_equal_constraint(tenner_csp, variables, (x, y), (row_neighbour, y))
+            # Add not equal constraints to adjacent cells in the row below
+            add_not_equal_constraint(tenner_csp, variables, (x, y), (x, y + 1))
+            add_not_equal_constraint(tenner_csp, variables, (x, y), (x + 1, y + 1))
+            add_not_equal_constraint(tenner_csp, variables, (x, y), (x - 1, y + 1))
+    return
+
+
 def tenner_csp_model_1(initial_tenner_board):
-    '''Return a CSP object representing a Tenner Grid CSP problem along 
+    """Return a CSP object representing a Tenner Grid CSP problem along
        with an array of variables for the problem. That is return
 
        tenner_csp, variable_array
@@ -55,22 +162,36 @@ def tenner_csp_model_1(initial_tenner_board):
        
        This routine returns model_1 which consists of a variable for
        each cell of the board, with domain equal to {0-9} if the board
-       has a 0 at that position, and domain equal {i} if the board has
+       has a -1 at that position, and domain equal {i} if the board has
        a fixed number i at that cell.
        
        model_1 contains BINARY CONSTRAINTS OF NOT-EQUAL between
        all relevant variables (e.g., all pairs of variables in the
        same row, etc.).
-       model_1 also constains n-nary constraints of sum constraints for each 
+       model_1 also contains n-nary constraints of sum constraints for each
        column.
-    '''
-    
-#IMPLEMENT
+    """
 
-##############################
+    n_grid = initial_tenner_board[0]
+    last_row = initial_tenner_board[1]
+    tenner_csp = CSP("TennerModel1")
+    variables = []
+
+    # Generate cell variables with appropriate domains & update tenner_csp
+    generate_cell_variables(tenner_csp, variables, n_grid)
+
+    # Add row and adjacency constraints to tenner_csp
+    # Use binary row constraints for "model_1", use n-ary row constraints for "model_2"
+    add_row_adjacency_constraints(tenner_csp, variables, "model_1")
+
+    # Add n-ary column sum constraints to tenner_csp
+    add_col_sum_constraints(tenner_csp, variables, last_row)
+
+    return tenner_csp, variables
+
 
 def tenner_csp_model_2(initial_tenner_board):
-    '''Return a CSP object representing a Tenner Grid CSP problem along 
+    """Return a CSP object representing a Tenner Grid CSP problem along
        with an array of variables for the problem. That is return
 
        tenner_csp, variable_array
@@ -99,13 +220,28 @@ def tenner_csp_model_2(initial_tenner_board):
        has a fixed number i at that cell.
 
        However, model_2 has different constraints. In particular, instead
-       of binary non-equals constaints model_2 has a combination of n-nary 
+       of binary non-equals contains model_2 has a combination of n-nary
        all-different constraints: all-different constraints for the variables in
        each row, contiguous cells (including diagonally contiguous cells), and 
        sum constraints for each column. Each of these constraints is over more 
        than two variables (some of these variables will have
        a single value in their domain). model_2 should create these
        all-different constraints between the relevant variables.
-    '''
+    """
 
-#IMPLEMENT
+    n_grid = initial_tenner_board[0]
+    last_row = initial_tenner_board[1]
+    tenner_csp = CSP("TennerModel2")
+    variables = []
+
+    # Generate cell variables with appropriate domains & update tenner_csp
+    generate_cell_variables(tenner_csp, variables, n_grid)
+
+    # Add row and adjacency constraints to tenner_csp
+    # Binary constraints for "model_1", n-ary constraints for "model_2"
+    add_row_adjacency_constraints(tenner_csp, variables, "model_2")
+
+    # Add n-ary column sum constraints to tenner_csp
+    add_col_sum_constraints(tenner_csp, variables, last_row)
+
+    return tenner_csp, variables
