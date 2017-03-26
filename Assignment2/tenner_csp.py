@@ -26,8 +26,19 @@ def add_not_equal_constraint(tenner_csp, variables, cord1, cord2):
     return
 
 
+def col_sum_satisfying_tuples(satisfying_tuples, variables, current_tuple, col_sum, col_index):
+    current_col_sum = sum(current_tuple)
+    if len(current_tuple) == len(variables) - 1:
+        if (col_sum - current_col_sum) in (variables[len(current_tuple)][col_index]).domain():
+            satisfying_tuples.append(current_tuple + (col_sum - current_col_sum,))
+        return
+    for i in (variables[len(current_tuple)][col_index]).domain():
+        if (current_col_sum + i) <= col_sum:
+            col_sum_satisfying_tuples(satisfying_tuples, variables, current_tuple + (i,), col_sum, col_index)
+    return
+
+
 def add_col_sum_constraints(tenner_csp, variables, last_row):
-    col_domain = (list(range(10)),) * len(variables)
     for col in range(10):
         name = "ColSumConstraint({})".format(col)
         scope = []
@@ -35,7 +46,8 @@ def add_col_sum_constraints(tenner_csp, variables, last_row):
             scope.append(variables[row][col])
         col_sum_constraint = Constraint(name, scope)
 
-        satisfying_tuples = [i for i in itertools.product(*col_domain) if sum(i) == last_row[col]]
+        satisfying_tuples = []
+        col_sum_satisfying_tuples(satisfying_tuples, variables, (), last_row[col], col)
         col_sum_constraint.add_satisfying_tuples(satisfying_tuples)
         tenner_csp.add_constraint(col_sum_constraint)
     return
@@ -49,6 +61,11 @@ def generate_cell_variables(tenner_csp, variables, n_grid):
             new_variable = Variable("Cell({}, {})".format(x, y), domain)
             tenner_csp.add_var(new_variable)
             variable_row.append(new_variable)
+        for i in range(10):
+            if len((variable_row[i]).domain()) == 1:
+                for j in range(10):
+                    if j != i and len((variable_row[j]).domain()) != 1:
+                        (variable_row[j]).prune_value(((variable_row[i]).domain())[0])
         variables.append(variable_row)
     return
 
@@ -74,13 +91,6 @@ def generate_row_product(variables, row):
     row_product = []
     for var in variables[row]:
         row_product.append(var.domain())
-
-    for i in range(10):
-        if len(row_product[i]) == 1:
-            for j in range(10):
-                if j != i and len(row_product[j]) != 1:
-                    index = row_product[j].index(row_product[i][0])
-                    row_product[j].pop(index)
     return row_product
 
 
