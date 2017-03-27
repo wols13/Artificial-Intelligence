@@ -200,8 +200,27 @@ def betterEvaluationFunction(currentGameState):
 
       DESCRIPTION: <write something here so we know what you did>
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+
+    # States that result in a loss evaluate to -infinity
+    if currentGameState.isLose():
+        return -float('inf')
+
+    # If the state results in a win, the final score is a valid state evaluation
+    if currentGameState.isWin():
+        return currentGameState.getScore()
+
+    # For non-terminal states, evaluation = (current score) - (closest food to pacman)
+    pacmanPosition = currentGameState.getPacmanPosition()
+    foodGrid = currentGameState.getFood()
+    closestFood = float('inf')
+
+    for x in range(foodGrid.width):
+        for y in range(foodGrid.height):
+            if foodGrid[x][y]:
+                closestFood = min(abs(pacmanPosition[0] - x) + abs(pacmanPosition[1] - y), closestFood)
+
+    return currentGameState.getScore() - closestFood
+
 
 # Abbreviation
 better = betterEvaluationFunction
