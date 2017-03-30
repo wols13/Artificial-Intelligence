@@ -16,6 +16,7 @@ from util import manhattanDistance
 from game import Directions
 import random, util
 import datetime
+import math
 
 from game import Agent
 
@@ -198,7 +199,9 @@ def betterEvaluationFunction(currentGameState):
       Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
       evaluation function (question 5).
 
-      DESCRIPTION: <write something here so we know what you did>
+      DESCRIPTION: States that result in a loss, evaluate to -infinity
+                   States that result in a win, the final score is a valid state evaluation
+                   Non-terminal states, evaluation = (current score) - (closest food to pacman)
     """
 
     # States that result in a loss evaluate to -infinity
@@ -292,18 +295,42 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         """
         self.states.append(state)
 
+    def getUcbValue(self, gameState, parentState):
+        if gameState not in self.plays or self.plays[gameState] == 0:
+            return -float('inf')
+        else:
+            value_estimate = (self.wins[gameState] + 0.0) / self.plays[gameState]
+            result = math.sqrt(math.log(self.plays[parentState]) / self.plays[gameState])
+            return value_estimate + (self.C * result)
+
     def getAction(self, gameState):
         """
         Returns the best action using UCT. Calls runSimulation to update nodes
         in its wins and plays dictionary, and returns best successor of gameState.
         """
-        "*** YOUR CODE HERE ***"
+
+        # Run UCT simulations while there is time
         games = 0
         begin = datetime.datetime.utcnow()
         while datetime.datetime.utcnow() - begin < self.calculation_time:
+            self.run_simulation(gameState)
             games += 1
 
-        util.raiseNotDefined()
+        # Return best action given UCT simulation outcome
+        best_action = Directions.STOP
+        best_action_evaluation = -float('inf')
+        for action in gameState.getLegalPacmanActions():
+            successor = gameState.generatePacmanSuccessor(action)
+            successor_value = 0
+            if successor not in self.plays or self.plays[successor] == 0:
+                successor_value = -float('inf')
+            else:
+                successor_value = (self.wins[successor] + 0.0) / self.plays[successor]
+
+            if successor_value > best_action_evaluation:
+                best_action_evaluation = successor_value
+                best_action = action
+        return best_action
 
     def run_simulation(self, state):
         """
@@ -315,8 +342,30 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         * Remember to limit the depth of the search only in the expansion phase!
         Updates values of appropriate states in search with with evaluation function.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+
+        current_state = state
+        current_agent = 0
+        while True:
+            if current_state.isWin() or current_state.isLose() or current_state not in self.plays:
+                return self.expand(current_state)
+
+            legal_actions = current_state.getLegalActions(current_agent)
+            max_ucb_value = -float('inf')
+            next_state = None
+            for action in legal_actions:
+                successor = current_state.generateSuccessor(current_agent, action)
+                if successor not in self.plays:
+                    return self.expand(successor)
+                else:
+                    successor_ucb_value = self.getUcbValue(successor, current_state)
+                    if successor_ucb_value > max_ucb_value:
+                        max_ucb_value = successor_ucb_value
+                        next_state = successor
+            current_state = next_state
+            current_agent = (current_agent + 1) % current_state.getNumAgents()
+
+    def expand(self, state):
+        return True
 
     def final(self, state):
         """
@@ -324,7 +373,7 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         Updates search tree values of states that were visited during an actual game of pacman.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return True
 
 
 def mctsEvalFunction(state):

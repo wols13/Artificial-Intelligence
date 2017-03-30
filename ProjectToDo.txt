@@ -1,22 +1,14 @@
-- Read and understand starter code:
-	multiAgents.py
-	pacman.py
-	game.py
-	util.py
-	ghostAgents.py *not needed but might be useful*
+- Implement UCT agent (Monte-Carlo Tree Search + UCB1)
+	- Implement getAction()
+				runSimulation()
+				final()
+	- Read input/output specs for those 3 functions
 
-- Implement MiniMax agent
-	- multiAgents.py > MinimaxAgent > getAction() details the complete input/output specs
-- Implement MiniMax agent with alpha-beta pruning 
-- Implement ExpectiMax agent
-- Implement Monte-Carlo Tree Search (MCTS) agent with UCB
 
 - After implementing MCTS, read evaluation section again
-- What you have now is version 1, check for subsequent releases and handle any deltas
 - Look into the use of training sets with Monte-Carlo tree search
 - Regularly check the clarifications page
 - Read thru specs again and making sure you are abiding by every single rule/instruction
 - 1st 3 Agents will be tested to ensure that correct nodes in the game tree search have been expanded
 - Add more test cases yourself and test those as well as the subset given from course
 - Test on cdf using python2 (version 2.7)
-- What files to submit will be released in the final fixed project specification
