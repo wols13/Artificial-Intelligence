@@ -269,9 +269,8 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         # This is where you set C, the depth, and the evaluation function for the section "Enhancements for MCTS agent".
         if Q:
             if Q == 'minimaxClassic':
-                # evalFn = 'better'
-                # #depth = 1
-                # self.C = 10
+                depth = 8
+                self.C = 4
                 pass
             elif Q == 'testClassic':
                 pass
