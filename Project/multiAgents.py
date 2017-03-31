@@ -207,7 +207,7 @@ def betterEvaluationFunction(currentGameState):
 
     # States that result in a loss evaluate to -infinity
     if currentGameState.isLose():
-        return -float('inf')
+        return currentGameState.getScore()
 
     # If the state results in a win, the final score is a valid state evaluation
     if currentGameState.isWin():
@@ -269,16 +269,21 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         # This is where you set C, the depth, and the evaluation function for the section "Enhancements for MCTS agent".
         if Q:
             if Q == 'minimaxClassic':
-                depth = 8
-                self.C = 4
-                pass
+                depth = 3
+                self.C = 2
             elif Q == 'testClassic':
-                pass
+                evalFn = "better"
+                depth = 1
+                self.C = 2
             elif Q == 'smallClassic':
-                pass
+                evalFn = "better"
+                depth = 1
+                self.C = 2
             else: # Q == 'contestClassic'
                 assert( Q == 'contestClassic' )
-                pass
+                evalFn = "better"
+                depth = 2
+                self.C = 2
         # Otherwise, your agent will default to these values.
         else:
             self.C = int(C)
@@ -408,7 +413,7 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         for node in visited_states:
             current_value = value
             if visited_states[node] != 0:
-                current_value = value #########################
+                current_value = value
             if node in self.plays:
                 self.plays[node] += 1
                 self.wins[node] += current_value
