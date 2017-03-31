@@ -364,7 +364,7 @@ class MonteCarloAgent(MultiAgentSearchAgent):
             if current_state.isWin() or current_state.isLose():
                 state_to_expand = current_state
                 break
-            visited_states[current_state] = current_agent
+            # visited_states[current_state] = current_agent
             legal_actions = current_state.getLegalActions(current_agent)
             max_ucb_value = -float('inf')
             next_state = None
@@ -385,9 +385,10 @@ class MonteCarloAgent(MultiAgentSearchAgent):
                     if successor_ucb_value > max_ucb_value:
                         max_ucb_value = successor_ucb_value
                         next_state = successor
+            current_agent = (current_agent + 1) % state.getNumAgents()
             if state_to_expand is None:
                 current_state = next_state
-            current_agent = (current_agent + 1) % state.getNumAgents()
+                visited_states[current_state] = current_agent
         visited_states[state_to_expand] = current_agent
 
         level = 1
