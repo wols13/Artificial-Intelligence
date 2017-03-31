@@ -17,6 +17,7 @@ from game import Directions
 import random, util
 import datetime
 import math
+import random
 
 from game import Agent
 
@@ -222,7 +223,11 @@ def betterEvaluationFunction(currentGameState):
             if foodGrid[x][y]:
                 closestFood = min(abs(pacmanPosition[0] - x) + abs(pacmanPosition[1] - y), closestFood)
 
-    return currentGameState.getScore() - closestFood
+    # farthestGhost = 0
+    # for ghost in currentGameState.getGhostPositions(0):
+    #     farthestGhost = max(abs(pacmanPosition[0] - ghost[0]) + abs(pacmanPosition[1] - ghost[1]), farthestGhost)
+
+    return currentGameState.getScore() - (2 * closestFood) #+ farthestGhost
 
 
 # Abbreviation
@@ -264,6 +269,9 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         # This is where you set C, the depth, and the evaluation function for the section "Enhancements for MCTS agent".
         if Q:
             if Q == 'minimaxClassic':
+                # evalFn = 'better'
+                # #depth = 1
+                # self.C = 10
                 pass
             elif Q == 'testClassic':
                 pass
@@ -295,12 +303,12 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         """
         self.states.append(state)
 
-    def getUcbValue(self, gameState, parentState):
+    def getUcbValue(self, gameState, parent_visits):
         if gameState not in self.plays or self.plays[gameState] == 0:
-            return -float('inf')
+            return float('inf')
         else:
-            value_estimate = (self.wins[gameState] + 0.0) / self.plays[gameState]
-            result = math.sqrt(math.log(self.plays[parentState]) / self.plays[gameState])
+            value_estimate = float(self.wins[gameState]) / self.plays[gameState]
+            result = math.sqrt(math.log(parent_visits) / self.plays[gameState])
             return value_estimate + (self.C * result)
 
     def getAction(self, gameState):
@@ -312,12 +320,19 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         # Run UCT simulations while there is time
         games = 0
         begin = datetime.datetime.utcnow()
+
+        if gameState.isWin() or gameState.isLose():
+            return Directions.STOP
+
+        if len(gameState.getLegalPacmanActions()) == 1:
+            return gameState.getLegalPacmanActions()[0]
+
         while datetime.datetime.utcnow() - begin < self.calculation_time:
             self.run_simulation(gameState)
             games += 1
 
         # Return best action given UCT simulation outcome
-        best_action = Directions.STOP
+        best_action = None
         best_action_evaluation = -float('inf')
         for action in gameState.getLegalPacmanActions():
             successor = gameState.generatePacmanSuccessor(action)
@@ -325,8 +340,7 @@ class MonteCarloAgent(MultiAgentSearchAgent):
             if successor not in self.plays or self.plays[successor] == 0:
                 successor_value = -float('inf')
             else:
-                successor_value = (self.wins[successor] + 0.0) / self.plays[successor]
-
+                successor_value = float(self.wins[successor]) / self.plays[successor]
             if successor_value > best_action_evaluation:
                 best_action_evaluation = successor_value
                 best_action = action
@@ -345,34 +359,68 @@ class MonteCarloAgent(MultiAgentSearchAgent):
 
         current_state = state
         current_agent = 0
-        while True:
-            if current_state.isWin() or current_state.isLose() or current_state not in self.plays:
-                return self.expand(current_state)
-
+        state_to_expand = None
+        visited_states = dict()
+        while state_to_expand is None:
+            if current_state.isWin() or current_state.isLose():
+                state_to_expand = current_state
+                break
+            visited_states[current_state] = current_agent
             legal_actions = current_state.getLegalActions(current_agent)
             max_ucb_value = -float('inf')
             next_state = None
+
+            parent_visits = 0
+            for action in legal_actions:
+                successor = current_state.generateSuccessor(current_agent, action)
+                if successor in self.plays:
+                    parent_visits += self.plays[successor]
+
             for action in legal_actions:
                 successor = current_state.generateSuccessor(current_agent, action)
                 if successor not in self.plays:
-                    return self.expand(successor)
+                    state_to_expand = successor
+                    break
                 else:
-                    successor_ucb_value = self.getUcbValue(successor, current_state)
+                    successor_ucb_value = self.getUcbValue(successor, parent_visits)
                     if successor_ucb_value > max_ucb_value:
                         max_ucb_value = successor_ucb_value
                         next_state = successor
-            current_state = next_state
-            current_agent = (current_agent + 1) % current_state.getNumAgents()
+            if state_to_expand is None:
+                current_state = next_state
+            current_agent = (current_agent + 1) % state.getNumAgents()
+        visited_states[state_to_expand] = current_agent
 
-    def expand(self, state):
-        return True
+        level = 1
+        while True:
+            if state_to_expand.isWin() or state_to_expand.isLose():
+                break
+            if self.depth != -1 and state_to_expand.getNumAgents() * self.depth == level:
+                break
+
+            legal_actions = state_to_expand.getLegalActions(current_agent)
+            random_action_index = random.randint(0, len(legal_actions) - 1)
+            state_to_expand = state_to_expand.generateSuccessor(current_agent, legal_actions[random_action_index])
+            level += 1
+            current_agent = (current_agent + 1) % state_to_expand.getNumAgents()
+
+        value = self.evaluationFunction(state_to_expand)
+        for node in visited_states:
+            current_value = value
+            if visited_states[node] != 0:
+                current_value = value #########################
+            if node in self.plays:
+                self.plays[node] += 1
+                self.wins[node] += current_value
+            else:
+                self.plays[node] = 1
+                self.wins[node] = current_value
 
     def final(self, state):
         """
         Called by Pacman game at the terminal state.
         Updates search tree values of states that were visited during an actual game of pacman.
         """
-        "*** YOUR CODE HERE ***"
         return True
 
 
