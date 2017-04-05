@@ -223,11 +223,7 @@ def betterEvaluationFunction(currentGameState):
             if foodGrid[x][y]:
                 closestFood = min(abs(pacmanPosition[0] - x) + abs(pacmanPosition[1] - y), closestFood)
 
-    # farthestGhost = 0
-    # for ghost in currentGameState.getGhostPositions(0):
-    #     farthestGhost = max(abs(pacmanPosition[0] - ghost[0]) + abs(pacmanPosition[1] - ghost[1]), farthestGhost)
-
-    return currentGameState.getScore() - (2 * closestFood) #+ farthestGhost
+    return currentGameState.getScore() - (2 * closestFood)
 
 
 # Abbreviation
@@ -265,12 +261,11 @@ class MonteCarloAgent(MultiAgentSearchAgent):
             -> Value are integers. When performing division (i.e. wins/plays) don't forget to convert to float.
       """
 
-    def __init__(self, evalFn='mctsEvalFunction', depth='-1', timeout='40', numTraining=100, C='2', Q=None):
+    def __init__(self, evalFn='mctsEvalFunction', depth='-1', timeout='50', numTraining=100, C='2', Q=None):
         # This is where you set C, the depth, and the evaluation function for the section "Enhancements for MCTS agent".
         if Q:
             if Q == 'minimaxClassic':
-                depth = 3
-                self.C = 2
+                self.C = 1
             elif Q == 'testClassic':
                 evalFn = "better"
                 depth = 1
@@ -336,7 +331,7 @@ class MonteCarloAgent(MultiAgentSearchAgent):
             games += 1
 
         # Return best action given UCT simulation outcome
-        best_action = None
+        best_action = Directions.STOP
         best_action_evaluation = -float('inf')
         for action in gameState.getLegalPacmanActions():
             successor = gameState.generatePacmanSuccessor(action)
@@ -366,14 +361,9 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         state_to_expand = None
         visited_states = dict()
         while state_to_expand is None:
-            if current_state.isWin() or current_state.isLose():
-                state_to_expand = current_state
-                break
-            # visited_states[current_state] = current_agent
             legal_actions = current_state.getLegalActions(current_agent)
             max_ucb_value = -float('inf')
-            next_state = None
-
+            next_state = current_state
             parent_visits = 0
             for action in legal_actions:
                 successor = current_state.generateSuccessor(current_agent, action)
@@ -384,17 +374,21 @@ class MonteCarloAgent(MultiAgentSearchAgent):
                 successor = current_state.generateSuccessor(current_agent, action)
                 if successor not in self.plays:
                     state_to_expand = successor
+                    visited_states[state_to_expand] = current_agent
+                    current_agent = (current_agent + 1) % state.getNumAgents()
                     break
                 else:
                     successor_ucb_value = self.getUcbValue(successor, parent_visits)
                     if successor_ucb_value > max_ucb_value:
                         max_ucb_value = successor_ucb_value
                         next_state = successor
-            current_agent = (current_agent + 1) % state.getNumAgents()
-            if state_to_expand is None:
+            if not state_to_expand:
                 current_state = next_state
                 visited_states[current_state] = current_agent
-        visited_states[state_to_expand] = current_agent
+                current_agent = (current_agent + 1) % state.getNumAgents()
+                if current_state.isWin() or current_state.isLose():
+                    state_to_expand = current_state
+                    break
 
         level = 1
         while True:
@@ -413,7 +407,7 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         for node in visited_states:
             current_value = value
             if visited_states[node] != 0:
-                current_value = value
+                current_value = 1 - value
             if node in self.plays:
                 self.plays[node] += 1
                 self.wins[node] += current_value
