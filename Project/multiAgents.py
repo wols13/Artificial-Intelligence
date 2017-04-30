@@ -265,7 +265,8 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         # This is where you set C, the depth, and the evaluation function for the section "Enhancements for MCTS agent".
         if Q:
             if Q == 'minimaxClassic':
-                self.C = 1
+                depth = 4
+                self.C = 2
             elif Q == 'testClassic':
                 evalFn = "better"
                 depth = 1
@@ -303,7 +304,7 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         self.states.append(state)
 
     def getUcbValue(self, gameState, parent_visits):
-        if gameState not in self.plays or self.plays[gameState] == 0:
+        if (self.plays.get(gameState, -10) == -10) or self.plays[gameState] == 0:
             return float('inf')
         else:
             value_estimate = float(self.wins[gameState]) / self.plays[gameState]
@@ -317,7 +318,6 @@ class MonteCarloAgent(MultiAgentSearchAgent):
         """
 
         # Run UCT simulations while there is time
-        games = 0
         begin = datetime.datetime.utcnow()
 
         if gameState.isWin() or gameState.isLose():
@@ -328,7 +328,6 @@ class MonteCarloAgent(MultiAgentSearchAgent):
 
         while datetime.datetime.utcnow() - begin < self.calculation_time:
             self.run_simulation(gameState)
-            games += 1
 
         # Return best action given UCT simulation outcome
         best_action = Directions.STOP
@@ -365,14 +364,17 @@ class MonteCarloAgent(MultiAgentSearchAgent):
             max_ucb_value = -float('inf')
             next_state = current_state
             parent_visits = 0
-            for action in legal_actions:
-                successor = current_state.generateSuccessor(current_agent, action)
-                if successor in self.plays:
-                    parent_visits += self.plays[successor]
+            if self.plays.get(current_agent, -10) != -10:
+                parent_visits = self.plays[current_agent]
+            else:
+                for action in legal_actions:
+                    successor = current_state.generateSuccessor(current_agent, action)
+                    if self.plays.get(successor, -10) != -10:
+                        parent_visits += self.plays[successor]
 
             for action in legal_actions:
                 successor = current_state.generateSuccessor(current_agent, action)
-                if successor not in self.plays:
+                if self.plays.get(successor, -10) == -10:
                     state_to_expand = successor
                     visited_states[state_to_expand] = current_agent
                     current_agent = (current_agent + 1) % state.getNumAgents()
@@ -392,11 +394,8 @@ class MonteCarloAgent(MultiAgentSearchAgent):
 
         level = 1
         while True:
-            if state_to_expand.isWin() or state_to_expand.isLose():
+            if state_to_expand.isWin() or state_to_expand.isLose() or (self.depth != -1 and state_to_expand.getNumAgents() * self.depth == level):
                 break
-            if self.depth != -1 and state_to_expand.getNumAgents() * self.depth == level:
-                break
-
             legal_actions = state_to_expand.getLegalActions(current_agent)
             random_action_index = random.randint(0, len(legal_actions) - 1)
             state_to_expand = state_to_expand.generateSuccessor(current_agent, legal_actions[random_action_index])
@@ -408,7 +407,7 @@ class MonteCarloAgent(MultiAgentSearchAgent):
             current_value = value
             if visited_states[node] != 0:
                 current_value = 1 - value
-            if node in self.plays:
+            if self.plays.get(node, -10) != -10:
                 self.plays[node] += 1
                 self.wins[node] += current_value
             else:
